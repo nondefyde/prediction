@@ -1,113 +1,257 @@
-import Image from 'next/image'
+"use client";
+import { Form, Input, Button, Row, Col, Typography, Select, Space, SelectProps, Divider, message, InputNumber, List, Tag } from 'antd';
+import { OUTCOMES } from '@mpr/_shared/constant';
+import { capitalize } from 'lodash';
+import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useTeam } from '@mpr/hooks/app';
+import { PlusOutlined } from '@ant-design/icons';
+import { CreateTeamModal } from '@mpr/_shared/components';
+import { useFixture } from '@mpr/hooks/app/fixture';
+import AppTable from '@mpr/_shared/components/app-table';
+import { getRandomItems } from '@mpr/_shared/utils';
+import { useAppSelector } from '@mpr/redux/store';
+import { useDispatch } from 'react-redux';
+import { generatePrediction, clearPrediction } from '@mpr/redux/slices/prediction';
+import { usePagination } from '@mpr/hooks/_shared/usePagination';
+
+const { Title } = Typography;
 
 export default function Home() {
+  const {predictions} = useAppSelector((state) => state.prediction);
+  const { pagination: predictionPagination } = usePagination({ key: 'get-predictions' });
+  const dispatch = useDispatch();
+  const [form] = Form.useForm();
+  const [predictionForm] = Form.useForm();
+  const [modalOpen, setModalOpen] = useState(false)
+  const [open, setOpen] = useState(false);
+  const { isLoading, getTeamsResponse, createTeam, createTeamResponse, isCreatingTeam } = useTeam({ triggerKeys: ['get-teams'] });
+  const { isLoadingFixtures, isCreatingFixture, createFixture, createFixtureResponse, getFixturesResponse, pagination, deleteFixture, deleteFixtureResponse } = useFixture({ triggerKeys: ['get-fixtures'] })
+
+  const onFinish = (values: Record<string, any>) => {
+    const teams: Array<string> = []
+    const payload = {
+      teams: teams.concat(values['home'], values['away']),
+      predictions: values['predictions']
+    }
+    createFixture({ payload })
+    form.resetFields();
+  };
+
+  const onGeneratePredictions = (values: Record<string, any>) => {
+    const predictions:Array<Record<string, any>>  = getRandomItems(getFixturesResponse?.data?.data, values['noOfPredictions'])
+    dispatch(generatePrediction({ predictions }));
+    predictionForm.resetFields();
+  };
+
+  console.log("getFixturesResponse?.data?.data:::", getFixturesResponse?.data?.data)
+
+  const onClearPredictions = () => dispatch(clearPrediction())
+
+  const onCreateTeam = (value: Record<string, any>) => {
+    createTeam({
+      payload: {
+        ...value,
+      }
+    })
+  }
+
+  const onDeleteFixture = (id: string) => {
+    deleteFixture({
+      payload: {
+        _id: id,
+      }
+    })
+  }
+  const handleOpenModal = () => {
+    setModalOpen(true)
+    setOpen(false)
+  }
+
+  const handleCloseModal = useCallback(() => {
+    form.resetFields();
+    setModalOpen(false);
+  }, [])
+
+
+  useEffect(() => {
+    if (createTeamResponse) {
+      if (createTeamResponse.data) {
+        message.success('Team added successfully')
+        setOpen(false)
+        setModalOpen(false)
+        form.resetFields()
+      } else if (createTeamResponse.error) {
+        message.error(createTeamResponse.error?.data?.meta?.error?.message || 'Error encountered, try again');
+      }
+    }
+  }, [createTeamResponse])
+
+  useEffect(() => {
+    if (createFixtureResponse) {
+      if (createFixtureResponse.data) {
+        message.success('Prediction created successfully')
+        setOpen(false)
+        form.resetFields()
+      } else if (createFixtureResponse.error) {
+        message.error(createFixtureResponse.error?.data?.meta?.error?.message || 'Error encountered, try again');
+      }
+    }
+  }, [createFixtureResponse])
+
+  useEffect(() => {
+    if (deleteFixtureResponse) {
+      if (deleteFixtureResponse.data) {
+        message.success('Prediction deleted successfully')
+        setOpen(false)
+        form.resetFields()
+      } else if (deleteFixtureResponse.error) {
+        message.error(deleteFixtureResponse.error?.data?.meta?.error?.message || 'Error encountered, try again');
+      }
+    }
+  }, [deleteFixtureResponse])
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <main className="flex min-h-screen flex-col items-center p-24">
+      <Title className='w-full text-center z-20 sticky top-0 bg-white'>M-Predict</Title>
+      <Title style={{ marginTop: 0 }} level={4}>Set up a fixture, and make predictions!</Title>
+
+      <section style={{ width: 700 }} className='shadow-lg rounded-xl p-6 mt-5 max-w-full'>
+        <Form form={form} onFinish={onFinish} layout="vertical" requiredMark={false}>
+          <Row gutter={16}>
+            <Col xs={24} sm={24} md={24} lg={6}>
+              <Form.Item name="home" label="Home" rules={[{ required: true, message: 'select a team' }]}
+              >
+                <Select
+                  showSearch
+                  size="middle"
+                  placeholder="Select team"
+                  open={open}
+                  onDropdownVisibleChange={(visible) => setOpen(visible)}
+                  dropdownRender={(menu) => (
+                    <>
+                      {menu}
+                      <Divider style={{ margin: '6px 0' }} />
+                      <Button type="text" icon={<PlusOutlined />} block onClick={handleOpenModal}>
+                        Add Team
+                      </Button>
+                    </>
+                  )}
+                >
+                  {(getTeamsResponse?.data?.data ?? [])?.map((team: Record<string, any>) => (
+                    <Select.Option key={team?._id} value={team?._id}>
+                      {capitalize(team?.name)}
+                    </Select.Option>
+                  )) ?? 'Teams are not available'}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={24} md={24} lg={1} className='flex justify-center items-center'>
+              <Space size="small">vs</Space>
+            </Col>
+            <Col xs={24} sm={24} md={24} lg={6}>
+              <Form.Item name="away" label="Away" rules={[{ required: true, message: 'select a team' }]}>
+                <Select
+                  showSearch
+                  size="middle"
+                  placeholder="Select team"
+                >
+                  {(getTeamsResponse?.data?.data ?? [])?.map((team: Record<string, any>) => (
+                    <Select.Option key={`${team?.name}-${team?._id}`} value={team?._id}>
+                      {capitalize(team?.name)}
+                    </Select.Option>
+                  )) ?? 'Teams are not available'}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={24} md={24} lg={6}>
+              <Form.Item name="predictions" label="Predictions" rules={[{ required: true, message: 'select at least one prediction' }]}>
+                <Select
+                  showSearch
+                  size="middle"
+                  placeholder="Select Predictions"
+                  mode="multiple"
+                  allowClear
+                  maxTagCount='responsive'
+                  placement='bottomRight'
+                >
+                  {OUTCOMES?.map((outcome, index) => (
+                    <Select.Option key={`${outcome}-${index}`} value={outcome}>
+                      {capitalize(outcome)}
+                    </Select.Option>
+                  )) ?? 'Teams are not available'}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={24} md={24} lg={5} className='flex justify-center items-center'>
+              <Button type="primary" htmlType="submit" className="bg-blue-500 shadow-lg shadow-blue-500/50" disabled={isLoading} loading={isLoading || isCreatingFixture}>
+                Submit
+              </Button>
+            </Col>
+          </Row>
+
+        </Form>
+      </section>
+
+      <section style={{ width: 700 }} className='my-16 max-w-full'>
+        <AppTable isLoading={isLoadingFixtures || getFixturesResponse.isFetching || deleteFixtureResponse.isLoading} data={getFixturesResponse?.data?.data ?? [] as any[]} pagination={pagination} onActionSubmit={onDeleteFixture} />
+      </section>
+
+          <div style={{ width: 700 }} className='max-w-full flex justify-end'>
+            <Title style={{ marginTop: 0 }} level={4}>Generate Predictions</Title>
+          </div>
+          <section style={{ width: 700 }} className='py-6 mt-0 max-w-full'>
+            <div className='w-full flex justify-end'>
+              <Form form={predictionForm} onFinish={onGeneratePredictions} layout="vertical" className='flex gap-2' requiredMark={false} id="generate-predictions-form">
+                <Form.Item
+                  name="noOfPredictions"
+                  className='w-48'
+                  rules={[
+                    {
+                      required: true,
+                      message: 'Enter a number',
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    className='w-full'
+                    size="middle"
+                    placeholder="Enter number of predictions"
+                    min={1}
+                  />
+                </Form.Item>
+                <Button type="primary" form="generate-predictions-form" htmlType="submit" className="bg-blue-500 shadow-lg shadow-blue-500/50" disabled={isLoading || !getFixturesResponse?.data?.data?.length} loading={isLoading || isCreatingFixture}>
+                  Generate
+                </Button>
+                <Button type="primary" form="generate-predictions-form" danger htmlType="reset" onClick={onClearPredictions} className="bg-red-500 shadow-lg shadow-red-500/50" disabled={isLoading || !getFixturesResponse?.data?.data?.length || !predictions?.length} loading={isLoading || isCreatingFixture}>
+                  Clear
+                </Button>
+
+              </Form>
+            </div>
+            <List
+              size="small"
+              locale={{ emptyText: 'No predictions generated' }}
+              bordered
+              dataSource={predictions}
+              pagination={predictions && predictions?.length > 0 ? {...predictionPagination}: undefined}
+              renderItem={(item) => <List.Item className='w-100' key={item?._id}>
+                <Row  style={{width: '100%'}} className='px-1 py-2' gutter={[16, 16]}>
+                  <Col span={10} ><Space>{capitalize(item?.teams[0]?.name)}</Space> vs <Space>{capitalize(item.teams[1]?.name)}</Space></Col>
+                  <Col span={14}>
+                  {item?.predictions.map((prediction:string, index:any) => {
+                        return (
+                            <Tag color={'geekblue'} key={`${prediction}-${index}`}>
+                                {prediction.toUpperCase()}
+                            </Tag>
+                        );
+                    })}
+                </Col>
+                </Row>
+              </List.Item>}
             />
-          </a>
-        </div>
-      </div>
+          </section>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      <CreateTeamModal modalOpen={modalOpen} onSubmit={onCreateTeam} isLoading={isCreatingTeam || isLoading || isCreatingFixture} onCancel={handleCloseModal} />
     </main>
   )
 }
