@@ -26,9 +26,9 @@ const nextConfig = (phase) => {
                 return 'http://localhost:4000/v1';
             }
             if (isProd) {
-                return 'https://cntci-service.weoutsyde.app/v1';
+                return 'https://prediction-service-app.onrender.com/v1';
             }
-            return 'https://cntci-service.weoutsyde.app/v1';
+            return 'https://prediction-service-app.onrender.com/v1';
         })(),
     };
     return {
