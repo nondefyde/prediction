@@ -30,7 +30,7 @@ export const useFixture = (props: useFixtureProps): UseFixtureReturnType => {
 
     const params = {
         ...paginate,
-        population: JSON.stringify(['teams']),
+        // population: JSON.stringify(['teams']),
     };
 
     useEffect(() => {

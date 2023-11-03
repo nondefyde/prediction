@@ -8,7 +8,7 @@ export interface TableDataType {
     key: string;
     id: string;
     _id: string;
-    teams: Record<string, any>[];
+    teams: string[];
     predictions: string[];
 }
 
@@ -28,9 +28,9 @@ const AppTable = (props: AppTableProps) => {
             title: 'Fixture',
             dataIndex: 'teams',
             key: 'teams',
-            render: (teams: Record<string, any>[]) => (
+            render: (teams: string[]) => (
                 <span>
-                    <Space>{capitalize(teams[0]?.name)}</Space> vs <Space>{capitalize(teams[1]?.name)}</Space>
+                    <Space>{capitalize(teams[0])}</Space> vs <Space>{capitalize(teams[1])}</Space>
                 </span>
             ),
         },
@@ -42,7 +42,7 @@ const AppTable = (props: AppTableProps) => {
                 <span>
                     {predictions.map((prediction, index) => {
                         return (
-                            <Tag color={'geekblue'} key={`${prediction}-${index}`}>
+                            <Tag style={{margin: '1.5px'}} color={'geekblue'} key={`${prediction}-${index}`}>
                                 {prediction.toUpperCase()}
                             </Tag>
                         );
