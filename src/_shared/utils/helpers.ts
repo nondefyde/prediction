@@ -106,7 +106,6 @@ const shuffleArray = <T extends Record<string, any>>(array: T[]): T[] => {
   return shuffledArray;
 };
 
-// Function to select a random item from an array
 const selectRandomItem = <T>(array: T[]): T => {
   const randomIndex = Math.floor(Math.random() * array.length);
   return array[randomIndex];
