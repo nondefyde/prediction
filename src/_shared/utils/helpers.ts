@@ -1,4 +1,5 @@
 import * as _ from 'lodash';
+import { DataItem } from '../namespace';
 
 
 export const moneyFormat = (value: number | bigint) => {
@@ -45,12 +46,7 @@ export enum COLOR_LIST_ALPHA {
     Z = '#C1EAFD',
 }
   
-interface DataItem {
-  predictions: string[]; 
-  teams: Record<string, any>[];
-  _id: string;
-  id: string;
-}
+
 
 export const getRandomItems = (array: DataItem[], n: number): DataItem[] => {
   if (n <= 0) {
@@ -58,7 +54,14 @@ export const getRandomItems = (array: DataItem[], n: number): DataItem[] => {
   }
 
   if (n >= array.length) {
-    return shuffleArray(array);
+    return shuffleArray(array).map(obj => {
+      return {
+        ...obj,
+        predictions: obj.predictions && obj.predictions.length > 0
+          ? [selectRandomItem(obj.predictions)]
+          : [],
+      };
+    });
   }
 
   const shuffledArray = shuffleArray(array);
@@ -67,34 +70,89 @@ export const getRandomItems = (array: DataItem[], n: number): DataItem[] => {
   for (let i = 0; i < n; i++) {
     if (i < array.length) {
       const obj = shuffledArray[i];
-      if (obj.predictions && obj.predictions.length > 0) {
-        const innerArray = shuffleArray(obj.predictions); 
-        const randomItemCount = Math.floor(Math.random() * innerArray.length) + 1;
-      
-        const selectedItems: string[] = [];
-        while (selectedItems.length < randomItemCount) {
-          const randomIndex = Math.floor(Math.random() * innerArray.length);
-          selectedItems.push(innerArray[randomIndex]);
-        }
-      
-        selectedObjects.push({ ...obj, predictions: selectedItems });
-      } else {
-        selectedObjects.push({ ...obj, predictions: [] });
-      }
-      
+      selectedObjects.push({
+        ...obj,
+        predictions: obj.predictions && obj.predictions.length > 0
+          ? [selectRandomItem(obj.predictions)]
+          : [],
+      });
     }
   }
 
   return selectedObjects;
 };
 
-// Fisher-Yates shuffle for an array
-const shuffleArray = <T>(array: T[]): T[] => {
+const shuffleArray = <T extends Record<string, any>>(array: T[]): T[] => {
   const shuffledArray = [...array];
+  const seenTeams = new Set<string>();
+
   for (let i = shuffledArray.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffledArray[i], shuffledArray[j]] = [shuffledArray[j], shuffledArray[i]];
+    
+    // If the shuffled item has a "teams" key, check if it's a duplicate
+    if (shuffledArray[i].teams && seenTeams.has(shuffledArray[i].teams)) {
+      for (let k = i - 1; k >= 0; k--) {
+        if (shuffledArray[k].teams !== shuffledArray[i].teams) {
+          [shuffledArray[i], shuffledArray[k]] = [shuffledArray[k], shuffledArray[i]];
+          break;
+        }
+      }
+    } else if (shuffledArray[i].teams) {
+      seenTeams.add(shuffledArray[i].teams);
+    }
   }
+
   return shuffledArray;
 };
 
+const selectRandomItem = <T>(array: T[]): T => {
+  const randomIndex = Math.floor(Math.random() * array.length);
+  return array[randomIndex];
+};
+
+// export const getRandomItems = (array: DataItem[], n: number): DataItem[] => {
+//   if (n <= 0) {
+//     return [];
+//   }
+
+//   if (n >= array.length) {
+//     return shuffleArray(array);
+//   }
+
+//   const shuffledArray = shuffleArray(array);
+//   const selectedObjects: DataItem[] = [];
+
+//   for (let i = 0; i < n; i++) {
+//     if (i < array.length) {
+//       const obj = shuffledArray[i];
+//       if (obj.predictions && obj.predictions.length > 0) {
+//         const innerArray = shuffleArray(obj.predictions); 
+//         const randomItemCount = Math.floor(Math.random() * innerArray.length) + 1;
+      
+//         const selectedItems: string[] = [];
+//         while (selectedItems.length < randomItemCount) {
+//           const randomIndex = Math.floor(Math.random() * innerArray.length);
+//           selectedItems.push(innerArray[randomIndex]);
+//         }
+      
+//         selectedObjects.push({ ...obj, predictions: selectedItems });
+//       } else {
+//         selectedObjects.push({ ...obj, predictions: [] });
+//       }
+      
+//     }
+//   }
+
+//   return selectedObjects;
+// };
+
+// Fisher-Yates shuffle for an array
+// const shuffleArray = <T>(array: T[]): T[] => {
+//   const shuffledArray = [...array];
+//   for (let i = shuffledArray.length - 1; i > 0; i--) {
+//     const j = Math.floor(Math.random() * (i + 1));
+//     [shuffledArray[i], shuffledArray[j]] = [shuffledArray[j], shuffledArray[i]];
+//   }
+//   return shuffledArray;
+// };
